@@ -480,7 +480,7 @@ function renderCalendar() {
     else if (hasFiltered) bg = '#fef3c7';
     else if (isToday) bg = '#f1f5f9';
 
-    if (isToday && !isSelected && !hasFiltered) border = 'border:1px solid #6366f1;';
+if (isToday && !isSelected && !hasFiltered) border = 'box-shadow: inset 0 0 0 1.5px #6366f1;';
 
     // 🔴 呢度開始係修改咗嘅部分 🔴
     let labels = '';
