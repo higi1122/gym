@@ -216,15 +216,20 @@ document.getElementById('loginBtn').onclick = async () => {
   document.getElementById('loginBtn').disabled = false;
   btnText.textContent = '進入';
 
-if (res.success) {
+  if (res.success) {
     currentUsername = name;
+    
+    // 👉 留意呢度：新加嘅兩行，幫佢 Save 帳號密碼！
+    localStorage.setItem('savedUsername', name);
+    localStorage.setItem('savedHash', hash);
+
     document.getElementById('usernameDisplay').textContent = `歡迎回來，${name}！`;
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('mainScreen').style.display = 'block';
     
     showToast(res.message);
     
-    // 🌟 直接用 Login 順便帶落嚟嘅 Data，慳返 2 秒！ 🌟
+    // 讀取資料
     allRecords = (res.data || []).map(r => {
       if (r.date && r.date.includes('T')) {
         const d = new Date(r.date);
@@ -252,6 +257,11 @@ document.getElementById('logoutBtn').onclick = () => {
   filterCats.clear();
   selectedDate = null;
   selectedCats.clear();
+  
+  // 👉 留意呢度：新加嘅兩行，登出時清空 Save 咗嘅密碼！
+  localStorage.removeItem('savedUsername');
+  localStorage.removeItem('savedHash');
+
   document.getElementById('loginScreen').style.display = 'flex';
   document.getElementById('mainScreen').style.display = 'none';
   document.getElementById('passwordInput').value = '';
@@ -269,7 +279,7 @@ async function loadData() {
       if (r.date && r.date.includes('T')) {
         const d = new Date(r.date);
         r.date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      }
+}
       return r;
     });
     renderFilterChips();
@@ -659,6 +669,40 @@ function showToast(msg) {
 }
 
 lucide.createIcons();
+
+
+// 頁面載入時檢查有無登入過
+window.onload = async () => {
+  const savedUser = localStorage.getItem('savedUsername');
+  const savedHash = localStorage.getItem('savedHash');
+  
+  if (savedUser && savedHash) {
+    // 1. 畫面即刻切換，畀用家覺得「秒入」
+    currentUsername = savedUser;
+    document.getElementById('usernameDisplay').textContent = `歡迎回來，${savedUser}！`;
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('mainScreen').style.display = 'block';
+    showToast('自動登入中，同步緊資料...');
+    
+    // 2. 喺背景靜靜雞 Call API 攞最新資料
+    const res = await callAPI({ action: 'login', username: savedUser, hash: savedHash });
+    if (res.success) {
+      allRecords = (res.data || []).map(r => {
+        if (r.date && r.date.includes('T')) {
+          const d = new Date(r.date);
+          r.date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+        return r;
+      });
+      renderFilterChips();
+      renderCalendar();
+      renderStats();
+    } else {
+      // 密碼改咗或者出錯，踢返出登入畫面
+      document.getElementById('logoutBtn').click();
+    }
+  }
+};
   </script>
  </body>
 </html>
