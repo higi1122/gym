@@ -1,0 +1,664 @@
+<!doctype html>
+<html lang="zh-HK" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <title>Fitness Tracker</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Outfit', sans-serif; }
+    .cat-chip { transition: all 0.2s ease; }
+    .cat-chip:hover { transform: translateY(-1px); }
+    .day-cell { transition: all 0.15s ease; height: 100px; }
+    .day-cell:hover { transform: none; }
+    .fade-in { animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+    .dot { width:6px; height:6px; border-radius:50%; display:inline-block; }
+    body { box-sizing: border-box; }
+    /* Loading Spinner */
+    .loader { border: 2px solid #f3f3f3; border-top: 2px solid #6366f1; border-radius: 50%; width: 14px; height: 14px; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; margin-right: 5px; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+ </head>
+ <body class="h-full">
+  <div id="app" class="h-full w-full overflow-auto" style="background:#f8fafc;">
+   
+   <!-- LOGIN SCREEN -->
+   <div id="loginScreen" class="h-full flex items-center justify-center" style="background:#f8fafc;">
+    <div class="w-full max-w-sm px-6">
+     <div class="text-center mb-8">
+      <h1 class="text-3xl font-bold mb-2" style="color:#1e293b;">💪 健身記錄</h1>
+      <p class="text-xs" style="color:#64748b;">紀錄你嘅訓練之旅</p>
+     </div>
+     <div class="rounded-2xl p-6" style="background:#fff;border:1px solid #e2e8f0;">
+      <label class="block text-xs font-semibold mb-3" style="color:#1e293b;">你嘅名字</label> 
+      <input id="usernameInput" type="text" placeholder="輸入名字" class="w-full px-4 py-3 rounded-xl border-none text-sm outline-none mb-3" style="background:#f1f5f9;color:#1e293b;"> 
+      
+      <label class="block text-xs font-semibold mb-3" style="color:#1e293b;">密碼 (首次登入會自動註冊)</label> 
+      <input id="passwordInput" type="password" placeholder="輸入密碼" class="w-full px-4 py-3 rounded-xl border-none text-sm outline-none mb-4" style="background:#f1f5f9;color:#1e293b;"> 
+      
+      <button id="loginBtn" class="w-full py-3 rounded-xl font-semibold text-sm transition-all flex justify-center items-center" style="background:#6366f1;color:#fff;">
+        <span id="loginBtnText">進入</span>
+      </button>
+     </div>
+    </div>
+   </div>
+
+   <!-- MAIN APP SCREEN (保持原狀，只係邏輯轉咗) -->
+   <div id="mainScreen" style="display:none;">
+    <header class="px-4 pt-4 pb-3">
+     <div class="flex items-center justify-between mb-2">
+      <div>
+       <h1 id="appTitle" class="text-xl font-bold" style="color:#1e293b;">💪 健身記錄</h1>
+       <p id="usernameDisplay" class="text-xs mt-0.5" style="color:#64748b;"></p>
+      </div>
+      <button id="logoutBtn" class="p-2 rounded-lg" style="background:#e2e8f0;color:#64748b;"><i data-lucide="log-out" style="width:18px;height:18px;"></i></button>
+     </div>
+    </header>
+
+    <!-- FILTER SECTION -->
+    <div class="px-4 mb-3"><label class="block text-xs font-semibold mb-2" style="color:#64748b;">篩選訓練部位</label>
+     <div class="flex flex-wrap gap-1.5" id="filterChips"></div>
+    </div>
+
+    <div class="px-4 flex items-center justify-between mb-3">
+     <button id="prevMonth" class="p-2 rounded-lg" style="background:#e2e8f0;color:#64748b;"><i data-lucide="chevron-left" style="width:18px;height:18px;"></i></button> 
+     <button id="monthLabel" class="font-semibold text-base" style="color:#1e293b;background:none;border:none;cursor:pointer;padding:0;"></button> 
+     <button id="nextMonth" class="p-2 rounded-lg" style="background:#e2e8f0;color:#64748b;"><i data-lucide="chevron-right" style="width:18px;height:18px;"></i></button> 
+     <button id="todayBtn" class="px-3 py-1 rounded-lg text-xs font-semibold" style="background:#6366f1;color:#fff;">今天</button>
+    </div>
+
+    <!-- Month Picker -->
+    <div id="monthPicker" class="fixed inset-0 flex items-center justify-center" style="display:none;background:rgba(0,0,0,0.5);z-index:50;">
+     <div class="bg-white rounded-2xl p-6 w-80 shadow-lg">
+      <h2 class="text-lg font-bold mb-4" style="color:#1e293b;">揀選月份</h2>
+      <div class="mb-4"><label class="block text-xs font-semibold mb-2" style="color:#64748b;">年份</label> <select id="yearSelect" class="w-full px-3 py-2 rounded-lg border-none outline-none text-sm" style="background:#f1f5f9;color:#1e293b;"> </select></div>
+      <div class="mb-4"><label class="block text-xs font-semibold mb-2" style="color:#64748b;">月份</label>
+       <div class="grid grid-cols-3 gap-2" id="monthGrid"></div>
+      </div>
+      <div class="flex gap-2"><button id="cancelPickerBtn" class="flex-1 px-4 py-2 rounded-lg font-semibold text-sm" style="background:#e2e8f0;color:#1e293b;">取消</button> <button id="confirmPickerBtn" class="flex-1 px-4 py-2 rounded-lg font-semibold text-sm" style="background:#6366f1;color:#fff;">確認</button></div>
+     </div>
+    </div>
+
+    <!-- Calendar -->
+    <div class="px-4 grid grid-cols-7 gap-0.5 mb-1">
+     <span class="text-center text-xs font-medium h-5 flex items-center justify-center" style="color:#64748b;">日</span> <span class="text-center text-xs font-medium h-5 flex items-center justify-center" style="color:#64748b;">一</span> <span class="text-center text-xs font-medium h-5 flex items-center justify-center" style="color:#64748b;">二</span> <span class="text-center text-xs font-medium h-5 flex items-center justify-center" style="color:#64748b;">三</span> <span class="text-center text-xs font-medium h-5 flex items-center justify-center" style="color:#64748b;">四</span> <span class="text-center text-xs font-medium h-5 flex items-center justify-center" style="color:#64748b;">五</span> <span class="text-center text-xs font-medium h-5 flex items-center justify-center" style="color:#64748b;">六</span>
+    </div>
+    <div id="calendarGrid" class="px-4 grid grid-cols-7 gap-0.5 mb-4"></div>
+
+    <!-- Day Panel -->
+    <div id="dayPanel" class="px-4 fade-in" style="display:none;">
+     <div class="rounded-2xl p-4 mb-4" style="background:#fff;border:1px solid #e2e8f0;">
+      <div class="flex items-center justify-between mb-3">
+       <h2 id="dayPanelTitle" class="font-semibold text-sm" style="color:#1e293b;"></h2><button id="closeDayPanel" class="p-1 rounded-lg" style="color:#64748b;"><i data-lucide="x" style="width:16px;height:16px;"></i></button>
+      </div>
+      <div class="flex flex-wrap gap-1.5 mb-3" id="categoryChips"></div>
+      
+      <!-- Custom Category -->
+      <div id="customCatSection" class="mb-3 pb-3" style="border-bottom:1px solid #e2e8f0;display:none;">
+        <label class="block text-xs font-semibold mb-2" style="color:#64748b;">新增自訂部位</label>
+       <div class="flex items-center gap-2 mb-2">
+        <input id="customCatInput" type="text" placeholder="輸入部位名稱" maxlength="6" class="flex-1 px-2.5 py-1.5 rounded-lg text-xs border-none outline-none" style="background:#f1f5f9;color:#1e293b;"> 
+        <button id="addCustomCatBtn" class="px-3 py-1.5 rounded-lg font-semibold text-xs transition-all" style="background:#10b981;color:#fff;">＋</button>
+       </div>
+       <div class="flex flex-wrap gap-1.5" id="customCatChips"></div>
+      </div>
+      
+      <textarea id="noteInput" rows="2" placeholder="備註（可選）" class="w-full rounded-lg p-2.5 text-xs resize-none border-none outline-none" style="background:#f1f5f9;color:#1e293b;"></textarea> 
+      <button id="addBtn" class="w-full mt-3 py-2.5 rounded-xl font-semibold text-xs transition-all flex justify-center items-center" style="background:#6366f1;color:#fff;"> 
+        <span id="addBtnText">＋ 新增記錄</span>
+      </button>
+      <div id="dayRecords" class="mt-4 space-y-2"></div>
+     </div>
+    </div>
+
+    <!-- Stats Bar -->
+    <div id="statsBar" class="px-4 pb-6">
+     <div class="rounded-2xl p-4" style="background:#fff;border:1px solid #e2e8f0;">
+      <h3 class="text-xs font-semibold mb-3" style="color:#64748b;">本月統計</h3>
+      <div id="statsContent" class="grid grid-cols-3 gap-3"></div>
+     </div>
+    </div>
+   </div>
+
+   <!-- Toast Notification -->
+   <div id="toast" class="fixed bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl text-xs font-medium transition-all" style="background:#6366f1;color:#fff;opacity:0;pointer-events:none;transform:translate(-50%,10px);z-index:100;"></div>
+  </div>
+
+  <script>
+// ==========================================
+// 1. 設定你的 Google Apps Script Web App URL
+// ==========================================
+const API_URL = 'https://script.google.com/macros/s/AKfycbznUI255V_WXbCiu2KpdfSDubu62Gk-QCvSkzkHEYCk_tffksmmJuMF165q_iuvu_qNAA/exec'; 
+
+let CATEGORIES = [
+  { id:'back', label:'背', emoji:'🔙', color:'#6366f1' },
+  { id:'chest', label:'胸', emoji:'🫁', color:'#ec4899' },
+  { id:'arm', label:'臂', emoji:'💪', color:'#f59e0b' },
+  { id:'shoulder', label:'膊', emoji:'🏋️', color:'#10b981' },
+  { id:'leg', label:'腿', emoji:'🦵', color:'#3b82f6' },
+  { id:'abs', label:'腹', emoji:'🫃', color:'#ef4444' },
+  { id:'cardio', label:'帶氧', emoji:'🏃', color:'#8b5cf6' },
+  { id:'other', label:'其他', emoji:'✨', color:'#06b6d4' },
+];
+
+const CUSTOM_COLORS = ['#a855f7', '#ec4899', '#f97316', '#06b6d4', '#14b8a6', '#d946ef'];
+let customCategories = JSON.parse(localStorage.getItem('customCats') || '[]');
+
+let allRecords = [];
+let currentYear, currentMonth, selectedDate = null, selectedCats = new Set();
+let currentUsername = null;
+let filterCats = new Set();
+
+const now = new Date();
+currentYear = now.getFullYear();
+currentMonth = now.getMonth();
+let pickerYear = currentYear;
+let pickerMonth = currentMonth;
+
+function fmtDate(y,m,d) {
+  return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+
+function recordsForDate(dateStr) {
+  return allRecords.filter(r => r.date === dateStr);
+}
+
+// ------------------------------------------
+// SHA-256 加密函數 (原生 Web Crypto API)
+// ------------------------------------------
+async function sha256(message) {
+  const msgBuffer = new TextEncoder().encode(message);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// ------------------------------------------
+// API 請求封裝
+// ------------------------------------------
+async function callAPI(data) {
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      // 用 text/plain 避開 CORS 預檢請求
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
+      body: JSON.stringify(data)
+    });
+    return await response.json();
+  } catch (error) {
+    console.error('API Error:', error);
+    return { success: false, message: '網絡錯誤，請重試' };
+  }
+}
+
+// ------------------------------------------
+// 登入邏輯
+// ------------------------------------------
+document.getElementById('loginBtn').onclick = async () => {
+  const name = document.getElementById('usernameInput').value.trim();
+  const pass = document.getElementById('passwordInput').value.trim();
+  
+  if (!name || !pass) {
+    showToast('請輸入名字同密碼');
+    return;
+  }
+
+  const btnText = document.getElementById('loginBtnText');
+  btnText.innerHTML = '<span class="loader"></span> 登入中...';
+  document.getElementById('loginBtn').disabled = true;
+
+  const hash = await sha256(pass);
+  const res = await callAPI({ action: 'login', username: name, hash: hash });
+
+  document.getElementById('loginBtn').disabled = false;
+  btnText.textContent = '進入';
+
+if (res.success) {
+    currentUsername = name;
+    document.getElementById('usernameDisplay').textContent = `歡迎回來，${name}！`;
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('mainScreen').style.display = 'block';
+    
+    showToast(res.message);
+    
+    // 🌟 直接用 Login 順便帶落嚟嘅 Data，慳返 2 秒！ 🌟
+    allRecords = (res.data || []).map(r => {
+      if (r.date && r.date.includes('T')) {
+        const d = new Date(r.date);
+        r.date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      }
+      return r;
+    });
+    
+    renderFilterChips();
+    renderCalendar();
+    renderStats();
+    lucide.createIcons();
+  } else {
+    showToast(res.message);
+  }
+};
+
+document.getElementById('passwordInput').onkeypress = (e) => {
+  if (e.key === 'Enter') document.getElementById('loginBtn').click();
+};
+
+document.getElementById('logoutBtn').onclick = () => {
+  currentUsername = null;
+  allRecords = [];
+  filterCats.clear();
+  selectedDate = null;
+  selectedCats.clear();
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('mainScreen').style.display = 'none';
+  document.getElementById('passwordInput').value = '';
+};
+
+// ------------------------------------------
+// 資料載入與同步 (已修復日期格式問題)
+// ------------------------------------------
+async function loadData() {
+  const res = await callAPI({ action: 'get_records', username: currentUsername });
+  if (res.success) {
+    allRecords = (res.data || []).map(r => {
+      // 如果 Google 傳返嚟嘅 date 係一串包含 'T' 嘅 ISO 時間 (例如 2026-03-26T16:00:00.000Z)
+      // 我哋將佢轉換返做本地嘅 YYYY-MM-DD 格式
+      if (r.date && r.date.includes('T')) {
+        const d = new Date(r.date);
+        r.date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      }
+      return r;
+    });
+    renderFilterChips();
+    renderCalendar();
+    renderStats();
+  }
+}
+// ------------------------------------------
+// 新增記錄邏輯 (取代舊的 dataSdk.create)
+// ------------------------------------------
+document.getElementById('addBtn').onclick = async () => {
+  if (selectedCats.size === 0 || !selectedDate) {
+    showToast('請先揀一個或多個訓練部位');
+    return;
+  }
+
+  const btn = document.getElementById('addBtn');
+  const btnText = document.getElementById('addBtnText');
+  btn.disabled = true;
+  btnText.innerHTML = '<span class="loader"></span> 儲存中...';
+
+  const note = document.getElementById('noteInput').value.trim();
+  let successCount = 0;
+
+  for (const cat of selectedCats) {
+    const res = await callAPI({
+      action: 'create_record',
+      date: selectedDate,
+      category: cat,
+      note: note,
+      username: currentUsername
+    });
+    
+    if (res.success) {
+      allRecords.push({
+        __backendId: res.id,
+        date: selectedDate,
+        category: cat,
+        note: note,
+        username: currentUsername
+      });
+      successCount++;
+    }
+  }
+
+  btn.disabled = false;
+  btnText.textContent = '＋ 新增記錄';
+
+  if (successCount === selectedCats.size) {
+    selectedCats.clear();
+    document.getElementById('noteInput').value = '';
+    renderCategoryChips();
+    renderDayRecords();
+    renderCalendar();
+    renderStats();
+    showToast(`已新增 ${successCount} 項記錄 ✅`);
+  } else {
+    showToast('部分記錄儲存失敗，請重試');
+  }
+};
+
+// ------------------------------------------
+// 刪除記錄邏輯 (取代舊的 dataSdk.delete)
+// ------------------------------------------
+window.deleteRec = async function(id) {
+  showToast('刪除中...');
+  const res = await callAPI({ action: 'delete_record', id: id, username: currentUsername });
+  
+  if (res.success) {
+    allRecords = allRecords.filter(r => r.__backendId !== id);
+    renderDayRecords();
+    renderCalendar();
+    renderStats();
+    showToast('已刪除');
+  } else {
+    showToast('刪除失敗');
+  }
+};
+
+// ==========================================
+// UI 渲染函數 (與你原本邏輯一致，無太大改動)
+// ==========================================
+
+function renderCategoryChips() {
+  const container = document.getElementById('categoryChips');
+  const allCats = [...CATEGORIES, ...customCategories];
+  container.innerHTML = allCats.map(c => `
+    <button onclick="toggleCat('${c.id}')" class="cat-chip px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1" 
+      style="background:${selectedCats.has(c.id)? c.color+'20' : '#f1f5f9'};color:${selectedCats.has(c.id)? c.color : '#64748b'};border:1.5px solid ${selectedCats.has(c.id)? c.color : '#e2e8f0'};">
+      ${c.emoji} ${c.label}
+    </button>
+  `).join('');
+  
+  container.innerHTML += `
+    <button onclick="toggleCustomSection()" class="cat-chip px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1" 
+      style="background:#f1f5f9;color:#64748b;border:1.5px solid #e2e8f0;">
+      ➕ 新增
+    </button>
+  `;
+
+  if (customCategories.length > 0) {
+    const customContainer = document.getElementById('customCatChips');
+    customContainer.innerHTML = customCategories.map(c => `
+      <div class="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium" style="background:${c.color}15;color:${c.color};">
+        ${c.emoji} ${c.label}
+        <button onclick="deleteCustomCat('${c.id}')" class="ml-1 hover:opacity-70" style="background:none;border:none;cursor:pointer;padding:0;color:${c.color};">✕</button>
+      </div>
+    `).join('');
+  }
+}
+
+window.toggleCat = function(id) {
+  if (selectedCats.has(id)) selectedCats.delete(id);
+  else selectedCats.add(id);
+  renderCategoryChips();
+};
+
+window.toggleCustomSection = function() {
+  const section = document.getElementById('customCatSection');
+  if (section.style.display === 'none') {
+    section.style.display = 'block';
+    document.getElementById('customCatInput').focus();
+  } else {
+    section.style.display = 'none';
+  }
+};
+
+window.deleteCustomCat = function(id) {
+  customCategories = customCategories.filter(c => c.id !== id);
+  localStorage.setItem('customCats', JSON.stringify(customCategories));
+  renderCategoryChips();
+  renderFilterChips();
+  showToast('已刪除自訂部位');
+};
+
+document.getElementById('addCustomCatBtn').onclick = () => {
+  const input = document.getElementById('customCatInput');
+  const name = input.value.trim();
+  if (!name) { showToast('請輸入部位名稱'); return; }
+  
+  const id = 'custom_' + Date.now();
+  const color = CUSTOM_COLORS[customCategories.length % CUSTOM_COLORS.length];
+  
+  customCategories.push({ id, label: name, color, emoji: '' });
+  localStorage.setItem('customCats', JSON.stringify(customCategories));
+  input.value = '';
+  renderCategoryChips();
+  renderFilterChips();
+  showToast(`已新增「${name}」部位`);
+};
+
+function renderFilterChips() {
+  const container = document.getElementById('filterChips');
+  const allCats = [...CATEGORIES, ...customCategories];
+  container.innerHTML = allCats.map(c => `
+    <button onclick="toggleFilter('${c.id}')" class="cat-chip px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1" 
+      style="background:${filterCats.has(c.id)? c.color+'40' : '#f1f5f9'};color:${filterCats.has(c.id)? c.color : '#64748b'};border:1.5px solid ${filterCats.has(c.id)? c.color : '#e2e8f0'};">
+      ${c.emoji} ${c.label}
+    </button>
+  `).join('');
+}
+
+window.toggleFilter = function(id) {
+  if (filterCats.has(id)) filterCats.delete(id);
+  else filterCats.add(id);
+  renderFilterChips();
+  renderCalendar();
+};
+
+function hasFilteredActivity(dateStr) {
+  if (filterCats.size === 0) return false;
+  return recordsForDate(dateStr).some(r => filterCats.has(r.category));
+}
+
+function renderCalendar() {
+  const grid = document.getElementById('calendarGrid');
+  const label = document.getElementById('monthLabel');
+  label.textContent = `${currentYear}年${currentMonth+1}月`;
+
+  const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+  const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
+  const todayStr = fmtDate(now.getFullYear(), now.getMonth(), now.getDate());
+
+  let html = '';
+  for (let i=0;i<firstDay;i++) html += '<div class="day-cell"></div>';
+
+  for (let d=1;d<=daysInMonth;d++) {
+    const dateStr = fmtDate(currentYear, currentMonth, d);
+    const recs = recordsForDate(dateStr);
+    const isToday = dateStr === todayStr;
+    const isSelected = dateStr === selectedDate;
+    const hasSessions = recs.length > 0;
+    const hasFiltered = hasFilteredActivity(dateStr);
+
+    let bg = 'transparent';
+    let border = '';
+    if (isSelected) bg = '#e0e7ff';
+    else if (hasFiltered) bg = '#fef3c7';
+    else if (isToday) bg = '#f1f5f9';
+
+    if (isToday && !isSelected && !hasFiltered) border = 'border:1px solid #6366f1;';
+
+    // 🔴 呢度開始係修改咗嘅部分 🔴
+    let labels = '';
+    if (hasSessions) {
+      const allCats = [...CATEGORIES, ...customCategories];
+      const cats = [...new Set(recs.map(r=>r.category))];
+      
+      // 移除咗 dots，直接做 labels，加咗 w-full 等佢識得自動跌落下一行
+      labels = '<div class="flex flex-wrap justify-center gap-1 mt-1.5 w-full px-0.5">';
+      
+      // 移除咗 slice(0,2)，而家會 forEach 顯示晒所有部位
+      cats.forEach(c => {
+        const cat = allCats.find(x=>x.id===c);
+        // 字體稍微較細 (text-[10px])，令一行可以塞多啲，排版靚啲
+        labels += `<span class="text-[10px] px-1 py-0.5 leading-none" style="background:${cat?cat.color:'#6366f1'}20;color:${cat?cat.color:'#6366f1'};border-radius:4px;">${cat?cat.label:c}</span>`;
+      });
+      labels += '</div>';
+    }
+
+    // 順便將下面 html+= 裡面嘅 ${dots} 刪除咗
+    html += `<button onclick="selectDay('${dateStr}')" class="day-cell rounded-lg py-1 px-0.5 text-center text-xs font-medium overflow-hidden flex flex-col items-center justify-start" style="background:${bg};color:#1e293b;${border}">
+      <span class="text-sm">${d}</span>${labels}
+    </button>`;
+    // 🔴 修改部分完結 🔴
+  }
+  grid.innerHTML = html;
+}
+
+function openMonthPicker() {
+  pickerYear = currentYear;
+  pickerMonth = currentMonth;
+  renderYearSelect();
+  renderMonthGrid();
+  document.getElementById('monthPicker').style.display = 'flex';
+}
+
+function renderYearSelect() {
+  const select = document.getElementById('yearSelect');
+  select.innerHTML = '';
+  for (let y = currentYear - 10; y <= currentYear + 10; y++) {
+    const opt = document.createElement('option');
+    opt.value = y;
+    opt.textContent = y + '年';
+    if (y === pickerYear) opt.selected = true;
+    select.appendChild(opt);
+  }
+  select.onchange = (e) => {
+    pickerYear = parseInt(e.target.value);
+    renderMonthGrid();
+  };
+}
+
+function renderMonthGrid() {
+  const grid = document.getElementById('monthGrid');
+  grid.innerHTML = '';
+  for (let m = 0; m < 12; m++) {
+    const btn = document.createElement('button');
+    btn.textContent = (m + 1) + '月';
+    btn.style.cssText = `
+      padding: 0.75rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500;
+      border: 1.5px solid ${pickerMonth === m && pickerYear === currentYear ? '#6366f1' : '#e2e8f0'};
+      background: ${pickerMonth === m && pickerYear === currentYear ? '#e0e7ff' : '#f1f5f9'};
+      color: ${pickerMonth === m && pickerYear === currentYear ? '#6366f1' : '#1e293b'};
+      cursor: pointer; transition: all 0.2s ease;
+    `;
+    btn.onclick = () => { pickerMonth = m; renderMonthGrid(); };
+    grid.appendChild(btn);
+  }
+}
+
+document.getElementById('monthLabel').onclick = openMonthPicker;
+
+document.getElementById('confirmPickerBtn').onclick = () => {
+  currentYear = pickerYear;
+  currentMonth = pickerMonth;
+  selectedDate = null;
+  selectedCats.clear();
+  document.getElementById('dayPanel').style.display = 'none';
+  document.getElementById('monthPicker').style.display = 'none';
+  renderCalendar();
+  renderStats();
+};
+
+document.getElementById('cancelPickerBtn').onclick = () => {
+  document.getElementById('monthPicker').style.display = 'none';
+};
+
+document.getElementById('prevMonth').onclick = () => {
+  currentMonth--;
+  if(currentMonth<0){currentMonth=11;currentYear--;}
+  selectedDate=null; selectedCats.clear();
+  document.getElementById('dayPanel').style.display='none';
+  renderCalendar(); renderStats();
+};
+
+document.getElementById('nextMonth').onclick = () => {
+  currentMonth++;
+  if(currentMonth>11){currentMonth=0;currentYear++;}
+  selectedDate=null; selectedCats.clear();
+  document.getElementById('dayPanel').style.display='none';
+  renderCalendar(); renderStats();
+};
+
+document.getElementById('todayBtn').onclick = () => {
+  currentYear = now.getFullYear(); currentMonth = now.getMonth();
+  selectedDate=null; selectedCats.clear();
+  document.getElementById('dayPanel').style.display='none';
+  renderCalendar(); renderStats();
+};
+
+window.selectDay = function(dateStr) {
+  selectedDate = dateStr;
+  selectedCats.clear();
+  document.getElementById('noteInput').value = '';
+  document.getElementById('dayPanel').style.display = 'block';
+  document.getElementById('customCatSection').style.display = 'none';
+  const parts = dateStr.split('-');
+  document.getElementById('dayPanelTitle').textContent = `${parseInt(parts[1])}月${parseInt(parts[2])}日`;
+  renderCategoryChips();
+  renderDayRecords();
+  renderCalendar();
+};
+
+document.getElementById('closeDayPanel').onclick = () => {
+  selectedDate = null; selectedCats.clear();
+  document.getElementById('dayPanel').style.display = 'none';
+  renderCalendar();
+};
+
+function renderDayRecords() {
+  const container = document.getElementById('dayRecords');
+  if (!selectedDate) { container.innerHTML = ''; return; }
+  const recs = recordsForDate(selectedDate);
+  if (!recs.length) {
+    container.innerHTML = '<p class="text-xs text-center py-2" style="color:#94a3b8;">呢日未有記錄</p>';
+    return;
+  }
+
+  container.innerHTML = recs.map(r => {
+    const allCats = [...CATEGORIES, ...customCategories];
+    const cat = allCats.find(c=>c.id===r.category);
+    return `<div class="flex items-center justify-between rounded-xl px-3 py-2 fade-in" style="background:#f1f5f9;">
+      <div class="flex items-center gap-2">
+        <span class="dot" style="background:${cat?cat.color:'#6366f1'};width:6px;height:6px;"></span>
+        <span class="text-xs font-medium" style="color:#1e293b;">${cat?cat.emoji+' '+cat.label : r.category}</span>
+        ${r.note ? `<span class="text-xs" style="color:#94a3b8;">— ${r.note}</span>` : ''}
+      </div>
+      <button onclick="deleteRec('${r.__backendId}')" class="p-1 rounded-lg" style="color:#ef4444;"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button>
+    </div>`;
+  }).join('');
+  lucide.createIcons();
+}
+
+function renderStats() {
+  const container = document.getElementById('statsContent');
+  const monthRecs = allRecords.filter(r => {
+    if (!r.date) return false;
+    const [y,m] = r.date.split('-').map(Number);
+    return y === currentYear && m === currentMonth+1;
+  });
+
+  const totalDays = new Set(monthRecs.map(r=>r.date)).size;
+  const totalSessions = monthRecs.length;
+  const topCat = (() => {
+    const counts = {};
+    monthRecs.forEach(r => { counts[r.category] = (counts[r.category]||0)+1; });
+    const top = Object.entries(counts).sort((a,b)=>b[1]-a[1])[0];
+    if (!top) return '—';
+    const cat = CATEGORIES.find(c=>c.id===top[0]);
+    return cat ? cat.emoji+' '+cat.label : top[0];
+  })();
+
+  container.innerHTML = `
+    <div class="text-center"><div class="text-xl font-bold" style="color:#6366f1;">${totalDays}</div><div class="text-xs" style="color:#94a3b8;">訓練日數</div></div>
+    <div class="text-center"><div class="text-xl font-bold" style="color:#ec4899;">${totalSessions}</div><div class="text-xs" style="color:#94a3b8;">總記錄</div></div>
+    <div class="text-center"><div class="text-sm font-bold" style="color:#10b981;">${topCat}</div><div class="text-xs" style="color:#94a3b8;">最多訓練</div></div>
+  `;
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.opacity = '1';
+  t.style.transform = 'translate(-50%,0)';
+  setTimeout(() => { t.style.opacity='0'; t.style.transform='translate(-50%,10px)'; }, 2000);
+}
+
+lucide.createIcons();
+  </script>
+ </body>
+</html>
